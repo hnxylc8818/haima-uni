@@ -7,8 +7,8 @@
 				<view class="common phone">
 					<image src="../../static/img/icon_phone.png" />
 					<view class="line"></view>
-					<input name="phone" @input="phoneInput" placeholder="手机号码" placeholder-style="color:#CECECE" type="number" confirm-type="next"
-					 maxlength="11" />
+					<input name="phone" @input="phoneInput" placeholder="手机号码" placeholder-style="color:#CECECE" type="number"
+					 confirm-type="next" maxlength="11" />
 				</view>
 				<view class="common code">
 					<image src="../../static/img/icon_lock.png" />
@@ -45,14 +45,15 @@
 				codeLoading: false,
 				interval: null,
 				codeValue: '',
-				phoneNumber:'',
+				phoneNumber: '',
+				exit: false,
 			};
 		},
 		methods: {
-			phoneInput(e){
+			phoneInput(e) {
 				this.phoneNumber = e.detail.value;
 			},
-			submitCode(){
+			submitCode() {
 				// 获取验证码
 				if (!this.checkPhoneNumber(this.phoneNumber)) {
 					return;
@@ -94,18 +95,24 @@
 					uni.showToast({
 						title: '登录成功'
 					});
-					let pages = getCurrentPages();
-					let prevPage = pages[pages.length - 2]; //上一个页面
-					if (prevPage) {
-						// console.log("prevPage",prevPage);
-						prevPage.onLoad(prevPage.options);
-					} else {
-						console.log("上一个页面实例为空,跳转到index");
+					if (this.exit) {
 						uni.switchTab({
-							url:"../index/index"
+							url: "../index/index"
 						});
+					} else {
+						let pages = getCurrentPages();
+						let prevPage = pages[pages.length - 2]; //上一个页面
+						if (prevPage) {
+							// console.log("prevPage",prevPage);
+							prevPage.onLoad(prevPage.options);
+							uni.navigateBack();
+						} else {
+							console.log("上一个页面实例为空,跳转到index");
+							uni.switchTab({
+								url: "../index/index"
+							});
+						}
 					}
-					// uni.navigateBack();
 				}, err => {
 					this.loginBtnLoading = false;
 				}, false)
@@ -152,6 +159,9 @@
 				}, false);
 			}
 		},
+		onLoad(options) {
+			this.exit = options.exit;
+		}
 	}
 </script>
 
