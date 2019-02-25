@@ -14,7 +14,7 @@
 
 <style>
 	/*每个页面公共css */
-	@import "common/base.scss";
+	@import "common/css/base.scss";
 
     .container {
         height: 100%;

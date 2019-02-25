@@ -3,11 +3,11 @@
 		<text class="logo">海马</text>
 		<text class="logo-desc">海外就医，马上到！</text>
 		<view class="form-view">
-			<form bindsubmit="formSubmit">
+			<form @submit="formSubmit">
 				<view class="common phone">
 					<image src="../../static/img/icon_phone.png" />
 					<view class="line"></view>
-					<input name="phone" placeholder="手机号码" placeholder-style="color:#CECECE" type="number" confirm-type="next"
+					<input name="phone" @input="phoneInput" placeholder="手机号码" placeholder-style="color:#CECECE" type="number" confirm-type="next"
 					 maxlength="11" />
 				</view>
 				<view class="common code">
@@ -16,7 +16,7 @@
 					<input name="code" :value="codeValue" placeholder="验证码" placeholder-style="color:#CECECE" type="number"
 					 confirm-type="done" maxlength="6" />
 					<view class="line"></view>
-					<button id="code" :disabled="codeDisabled" :loading="codeLoading" form-type="submit" class="send-code">{{codeText}}</button>
+					<button data="code" id="code" :disabled="codeDisabled" :loading="codeLoading" @click="submitCode" class="send-code">{{codeText}}</button>
 				</view>
 				<button id="login" :disabled="loginBtnLoading" :loading="loginBtnLoading" form-type="submit" class="login-btn">登录</button>
 			</form>
@@ -29,7 +29,13 @@
 </template>
 
 <script>
+	import utils from "../../mixins/utils.js"
+	import commonApi from "../../mixins/commonApi.js"
+	import {
+		httpUrl
+	} from "../../common/utils/httpUrl.js"
 	export default {
+		mixins: [commonApi, utils],
 		data() {
 			return {
 				loginBtnLoading: false,
@@ -39,78 +45,118 @@
 				codeLoading: false,
 				interval: null,
 				codeValue: '',
+				phoneNumber:'',
 			};
 		},
 		methods: {
-			formSubmit(e) {
-				let targetID = e.detail.target.id;
-				let phoneNumber = e.detail.value.phone;
-				if (targetID == "code") {
-					// 获取验证码
-					if (!this.checkPhoneNumber(phoneNumber)) {
-						return;
-					}
-					// 调用发送验证码接口
-					this.sendSmsCode(phoneNumber)
-				} else {
-					// 登录
-					if (!this.checkPhoneNumber(phoneNumber)) {
-						return;
-					}
-					let smsCode = e.detail.value.code;
-					if (!smsCode) {
-						wx.showToast({
-							title: '请输入验证码',
-							icon: 'none'
-						});
-						return;
-					}
-					// 调用登录
-					this.loginBtnLoading = true;
-					let loginData = {
-						"telephone": phoneNumber,
-						"smscode": smsCode,
-					};
-					let t = this;
-					this.sendRequest(httpUrl.login, 'PUT', loginData, res => {
-						let accessToken = res.accessToken;
-						wx.setStorageSync('accessToken', accessToken);
-						this.loginBtnLoading = false;
-						if (this.interval) {
-							clearInterval(this.interval);
-						}
-						wx.showToast({
-							title: '登录成功'
-						});
-						let pages = getCurrentPages();
-						let prevPage = pages[pages.length - 2]; //上一个页面
-						if (prevPage) {
-							// console.log("prevPage",prevPage);
-							prevPage.onLoad(prevPage.options);
-						} else {
-							console.log("上一个页面实例为空,跳转到index");
-							t.$redirect("index");
-						}
-						this.$apply();
-						wx.navigateBack();
-					}, err => {
-						this.loginBtnLoading = false;
-						this.$apply();
-					}, false)
+			phoneInput(e){
+				this.phoneNumber = e.detail.value;
+			},
+			submitCode(){
+				// 获取验证码
+				if (!this.checkPhoneNumber(this.phoneNumber)) {
+					return;
 				}
+				// 调用发送验证码接口
+				this.sendSmsCode(this.phoneNumber)
+			},
+			formSubmit(e) {
+				console.log("e", e)
+				let targetID = e.target.id;
+				let phoneNumber = e.detail.value.phone;
+				this.phoneNumber = phoneNumber;
+				// 登录
+				if (!this.checkPhoneNumber(phoneNumber)) {
+					return;
+				}
+				let smsCode = e.detail.value.code;
+				if (!smsCode) {
+					uni.showToast({
+						title: '请输入验证码',
+						icon: 'none'
+					});
+					return;
+				}
+				// 调用登录
+				this.loginBtnLoading = true;
+				let loginData = {
+					"telephone": phoneNumber,
+					"smscode": smsCode,
+				};
+				let t = this;
+				this.sendRequest(httpUrl.login, 'PUT', loginData, res => {
+					let accessToken = res.accessToken;
+					uni.setStorageSync('hmtoken', accessToken);
+					this.loginBtnLoading = false;
+					if (this.interval) {
+						clearInterval(this.interval);
+					}
+					uni.showToast({
+						title: '登录成功'
+					});
+					let pages = getCurrentPages();
+					let prevPage = pages[pages.length - 2]; //上一个页面
+					if (prevPage) {
+						// console.log("prevPage",prevPage);
+						prevPage.onLoad(prevPage.options);
+					} else {
+						console.log("上一个页面实例为空,跳转到index");
+						uni.switchTab({
+							url:"../index/index"
+						});
+					}
+					// uni.navigateBack();
+				}, err => {
+					this.loginBtnLoading = false;
+				}, false)
 			},
 			bindWxLogin() {
-				wx.showToast({
+				uni.showToast({
 					title: '即将上线，敬请期待',
 					icon: 'none'
 				});
+			},
+			// 发送短信验证码
+			sendSmsCode(phoneNumber) {
+				this.codeText = "";
+				this.codeDisabled = true;
+				this.codeLoading = true;
+				this.sendSmsCode_Mixin(phoneNumber, res => {
+					this.codeLoading = false;
+					uni.showToast({
+						title: '验证码已发送'
+					});
+					this.codeValue = res.smscode;
+					this.codeText = "60秒";
+					if (this.interval) {
+						clearInterval(this.interval);
+					}
+					this.interval = setInterval(fun => {
+						this.currentTime--;
+						this.codeText = this.currentTime + "秒";
+						if (this.currentTime <= 0) {
+							clearInterval(this.interval);
+							this.codeText = "重新获取";
+							this.currentTime = 60;
+							this.codeDisabled = false;
+						}
+					}, 1000);
+
+				}, err => {
+					if (this.interval) {
+						clearInterval(this.interval);
+					}
+					this.codeText = "发送验证码";
+					this.codeDisabled = false;
+					this.codeLoading = false;
+				}, false);
 			}
 		},
 	}
 </script>
 
 <style lang="scss">
-	@import "../../common/base.scss";
+	@import "../../common/css/base.scss";
 
 	.login {
 		display: flex;
